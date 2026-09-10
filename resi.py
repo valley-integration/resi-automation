@@ -344,6 +344,18 @@ def main():
     subparsers.add_parser("get-analytics", help="Get summary and city analytics for streams")
 
     args = parser.parse_args()
+
+    # Load environment variables from ~/.hermes/profiles/work/.env if present
+    env_file = os.path.expanduser("~/.hermes/profiles/work/.env")
+    if os.path.exists(env_file):
+        with open(env_file, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key, val = line.split("=", 1)
+                    val = val.strip("\"' ")
+                    os.environ.setdefault(key.strip(), val)
+
     client = ResiClient()
 
     if args.command == "list-schedules":
