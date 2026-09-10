@@ -11,12 +11,12 @@ Use when managing Resi Studio streams, schedules, encoders, webplayer links, ana
 Script: `./resi.py`
 
 ## Credentials & Configuration
-Set `RESI_EMAIL` and `RESI_PASSWORD` or `RESI_BEARER_TOKEN` in your environment or local `.env` file.
-Never commit raw Resi user credentials, passwords, or bearer tokens to git.
+Set `RESI_CLIENT_ID` and `RESI_CLIENT_SECRET` (or `RESI_BEARER_TOKEN`) in `~/.hermes/profiles/work/.env`.
+Never commit raw Resi API secrets, passwords, or bearer tokens to git.
 
 ```bash
-export RESI_EMAIL="user@domain.com"
-export RESI_PASSWORD="your_password_here"
+export RESI_CLIENT_ID="your_client_id_here"
+export RESI_CLIENT_SECRET="your_client_secret_here"
 ```
 
 ## Features & Usage

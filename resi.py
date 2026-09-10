@@ -30,17 +30,19 @@ try:
 except ImportError:
     pass
 
-DEFAULT_CUSTOMER_ID = "a6d06bd5-b77d-5c77-4e86-a64f16400362"
+DEFAULT_CUSTOMER_ID = os.environ.get("RESI_CUSTOMER_ID", "a6d06bd5-b77d-5c77-4e86-a64f16400362")
 BASE_CENTRAL_URL = "https://central.resi.io/api/v3"
 BASE_MEDIA_URL = "https://media-metadata.resi.io/api/v1"
 BASE_STATUS_URL = "https://media-status.resi.io/api/v1"
 
 class ResiClient:
-    def __init__(self, email=None, password=None, token=None, customer_id=DEFAULT_CUSTOMER_ID):
-        self.customer_id = customer_id
+    def __init__(self, email=None, password=None, token=None, client_id=None, client_secret=None, customer_id=None):
         self.email = email or os.environ.get("RESI_EMAIL")
         self.password = password or os.environ.get("RESI_PASSWORD")
         self.token = token or os.environ.get("RESI_BEARER_TOKEN")
+        self.client_id = client_id or os.environ.get("RESI_CLIENT_ID")
+        self.client_secret = client_secret or os.environ.get("RESI_CLIENT_SECRET")
+        self.customer_id = customer_id or os.environ.get("RESI_CUSTOMER_ID") or DEFAULT_CUSTOMER_ID
         
         self.session = requests.Session()
         self.session.headers.update({
@@ -52,28 +54,47 @@ class ResiClient:
         if self.token:
             self.session.headers["Authorization"] = f"Bearer {self.token}"
 
-        # 2. Second priority: Sign in with Email & Password
+        # 2. Second priority: OAuth2 Client Credentials (Client ID & Client Secret)
+        elif self.client_id and self.client_secret:
+            self._login_with_client_credentials()
+
+        # 3. Third priority: Direct Sign in with Email & Password
         elif self.email and self.password:
             self._login_with_credentials()
 
-        # 3. Third priority: Extract token or session from local HAR file
         else:
-            self.token = self._extract_token_from_har()
-            if self.token:
-                self.session.headers["Authorization"] = f"Bearer {self.token}"
-            else:
-                raise ValueError(
-                    "No Resi authentication provided.\n"
-                    "Please set either:\n"
-                    "  1. RESI_EMAIL and RESI_PASSWORD in environment or .env file\n"
-                    "  2. RESI_BEARER_TOKEN in environment\n"
-                    "  3. Provide a studio.resi.io.har export in the working directory."
-                )
+            raise ValueError(
+                "No Resi authentication provided.\n"
+                "Please set RESI_CLIENT_ID and RESI_CLIENT_SECRET, or RESI_BEARER_TOKEN, or RESI_EMAIL/RESI_PASSWORD in ~/.hermes/profiles/work/.env"
+            )
+
+    def _login_with_client_credentials(self):
+        """Authenticates using Resi API Client ID and Client Secret via official OAuth endpoint."""
+        url = "https://api.resi.io/v1/oauth/token"
+        payload = {
+            "grant_type": "client_credentials",
+            "client_id": self.client_id,
+            "client_secret": self.client_secret
+        }
+        res = self.session.post(url, json=payload)
+        res.raise_for_status()
+        data = res.json()
+        
+        token = data.get("access_token") or data.get("token")
+        if token:
+            self.token = token
+            self.session.headers["Authorization"] = f"Bearer {self.token}"
+        else:
+            raise ValueError("Resi OAuth succeeded, but no access token returned in response.")
 
     def _login_with_credentials(self):
-        """Authenticates directly with Resi Studio using user credentials."""
-        url = f"{BASE_CENTRAL_URL}/auth/login"
-        payload = {"email": self.email, "password": self.password}
+        """Authenticates directly with Resi Studio using user credentials via OAuth2 password grant."""
+        url = f"{BASE_CENTRAL_URL}/auth/token"
+        payload = {
+            "grant_type": "password",
+            "username": self.email,
+            "password": self.password
+        }
         res = self.session.post(url, json=payload)
         res.raise_for_status()
         data = res.json()
@@ -85,30 +106,7 @@ class ResiClient:
         else:
             raise ValueError("Resi login succeeded, but no access token returned in response.")
 
-    def _extract_token_from_har(self):
-        har_files = ["studio.resi.io_new_analytics.har", "studio.resi.io_new.har", "studio.resi.io.har"]
-        for hf in har_files:
-            if os.path.exists(hf):
-                try:
-                    with open(hf, 'r') as f:
-                        data = json.load(f)
-                    entries = data.get('log', {}).get('entries', [])
-                    for entry in entries:
-                        # First check Authorization header
-                        headers = entry.get('request', {}).get('headers', [])
-                        for h in headers:
-                            if h.get('name', '').lower() == 'authorization' and h.get('value', '').startswith('Bearer '):
-                                return h.get('value').replace('Bearer ', '').strip()
-                        # Next check auth token response
-                        if 'auth/token' in entry.get('request', {}).get('url', ''):
-                            text = entry.get('response', {}).get('content', {}).get('text')
-                            if text:
-                                token_data = json.loads(text)
-                                if 'access_token' in token_data:
-                                    return token_data['access_token']
-                except Exception:
-                    pass
-        return None
+
 
     # --- Schedule Management ---
     def list_schedules(self):
