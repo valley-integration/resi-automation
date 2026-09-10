@@ -11,11 +11,12 @@ Use when managing Resi Studio streams, schedules, encoders, webplayer links, ana
 Script: `./resi.py`
 
 ## Credentials & Configuration
-Set `RESI_BEARER_TOKEN` in your environment or profile configuration file (`~/.hermes/profiles/work/.env`).
+Set `RESI_EMAIL` and `RESI_PASSWORD` or `RESI_BEARER_TOKEN` in your environment or local `.env` file.
 Never commit raw Resi user credentials, passwords, or bearer tokens to git.
 
 ```bash
-export RESI_BEARER_TOKEN="your_resi_bearer_token_here"
+export RESI_EMAIL="user@domain.com"
+export RESI_PASSWORD="your_password_here"
 ```
 
 ## Features & Usage
@@ -46,4 +47,14 @@ Resi requires stereo 48kHz audio and strict 2-second keyframe GOP intervals.
 `resi.py` automatically transcodes local files via `ffmpeg`:
 ```bash
 python3 resi.py upload-video /path/to/video.mp4 --title "Sunday Service Sermon" --description "Luke 12:35-48"
+```
+
+To skip transcoding if the file is already Resi-compliant:
+```bash
+python3 resi.py upload-video /path/to/video.mp4 --title "Pre-rendered Video" --no-transcode
+```
+
+### 6. Delete a Schedule
+```bash
+python3 resi.py delete-schedule <schedule_uuid>
 ```

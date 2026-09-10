@@ -22,6 +22,14 @@ import subprocess
 from urllib.parse import quote, urlparse
 import requests
 
+# Load .env file from working directory or user home if python-dotenv is installed
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    load_dotenv(os.path.expanduser("~/.env"))
+except ImportError:
+    pass
+
 DEFAULT_CUSTOMER_ID = "a6d06bd5-b77d-5c77-4e86-a64f16400362"
 BASE_CENTRAL_URL = "https://central.resi.io/api/v3"
 BASE_MEDIA_URL = "https://media-metadata.resi.io/api/v1"
@@ -57,7 +65,7 @@ class ResiClient:
                 raise ValueError(
                     "No Resi authentication provided.\n"
                     "Please set either:\n"
-                    "  1. RESI_EMAIL and RESI_PASSWORD in ~/.hermes/profiles/work/.env\n"
+                    "  1. RESI_EMAIL and RESI_PASSWORD in environment or .env file\n"
                     "  2. RESI_BEARER_TOKEN in environment\n"
                     "  3. Provide a studio.resi.io.har export in the working directory."
                 )
@@ -80,10 +88,9 @@ class ResiClient:
     def _extract_token_from_har(self):
         har_files = ["studio.resi.io_new_analytics.har", "studio.resi.io_new.har", "studio.resi.io.har"]
         for hf in har_files:
-            har_path = os.path.join("/Users/wittenode/workspace", hf)
-            if os.path.exists(har_path):
+            if os.path.exists(hf):
                 try:
-                    with open(har_path, 'r') as f:
+                    with open(hf, 'r') as f:
                         data = json.load(f)
                     entries = data.get('log', {}).get('entries', [])
                     for entry in entries:
@@ -344,18 +351,6 @@ def main():
     subparsers.add_parser("get-analytics", help="Get summary and city analytics for streams")
 
     args = parser.parse_args()
-
-    # Load environment variables from ~/.hermes/profiles/work/.env if present
-    env_file = os.path.expanduser("~/.hermes/profiles/work/.env")
-    if os.path.exists(env_file):
-        with open(env_file, "r") as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    key, val = line.split("=", 1)
-                    val = val.strip("\"' ")
-                    os.environ.setdefault(key.strip(), val)
-
     client = ResiClient()
 
     if args.command == "list-schedules":

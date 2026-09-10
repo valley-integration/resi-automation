@@ -1,13 +1,13 @@
 # Resi Studio Automation (`resi-automation`)
 
-Automate Resi Studio (`studio.resi.io`) workflows using direct REST API calls and local `ffmpeg` video transcoding. Designed for **Hermes Agent**, **Grok Bot**, **Cursor**, **Claude Code**, or any AI assistant environment.
+Automate Resi Studio (`studio.resi.io`) workflows using direct REST API calls and local `ffmpeg` video transcoding. Designed for **Cursor**, **Grok Bot**, **Hermes**, **Claude Code**, or any AI assistant environment.
 
 ---
 
 ## 📦 What's Included
 
 * `resi.py` — Core Python client and CLI tool for Resi Studio.
-* `SKILL.md` — Hermes / AI Agent Skill specification file.
+* `SKILL.md` — Universal AI Agent Skill specification file.
 * `SYSTEM_PROMPT.md` — System prompt for AI coding agents or Grok Bot.
 * `.cursor/rules/resi.mdc` — Cursor IDE Rule definition.
 
@@ -17,8 +17,14 @@ Automate Resi Studio (`studio.resi.io`) workflows using direct REST API calls an
 
 **DO NOT commit Resi passwords or API tokens to git.**
 
-Set your Resi Bearer Token in your environment or profile `.env` file (`~/.hermes/profiles/work/.env`):
+Set your Resi Studio sign-in credentials in your environment or local `.env` file:
 
+```bash
+export RESI_EMAIL="user@domain.com"
+export RESI_PASSWORD="your_password_here"
+```
+
+Or set a Bearer token directly:
 ```bash
 export RESI_BEARER_TOKEN="your_token_here"
 ```
@@ -29,7 +35,7 @@ export RESI_BEARER_TOKEN="your_token_here"
 
 ### Installation
 ```bash
-pip install requests
+pip install requests python-dotenv
 ```
 
 ### List Schedules & Encoders
@@ -58,11 +64,8 @@ python3 resi.py upload-video /path/to/video.mp4 --title "Sunday Service Sermon" 
 
 ## 🛠 Integrating with AI Assistants
 
-### Hermes / AI Agent
-Copy `SKILL.md` into your local skill directory:
-```bash
-cp SKILL.md ~/.hermes/skills/resi-automation/SKILL.md
-```
-
 ### Cursor IDE
 Copy `.cursor/rules/resi.mdc` into your project's `.cursor/rules/` directory.
+
+### AI Agent / Skill Frameworks
+Copy `SKILL.md` or `SYSTEM_PROMPT.md` into your agent's skill directory.
