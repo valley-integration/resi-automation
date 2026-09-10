@@ -1,0 +1,12 @@
+---
+description: Rules for automating Resi Studio workflows via resi.py CLI
+globs: *.py, *.md
+---
+
+# Resi Studio Automation Rules
+
+When assisting with Resi Studio:
+- Execute commands using `./resi.py` CLI.
+- Read `RESI_BEARER_TOKEN` from the environment.
+- Transcode videos with `ffmpeg` using `-g 48 -keyint_min 48 -ar 48000 -ac 2` prior to Resi upload.
+- Never output or log authorization bearer tokens or user account passwords.

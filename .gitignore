@@ -1,0 +1,7 @@
+*.har
+*.mp4
+*.m4s
+.env
+__pycache__/
+*.pyc
+.DS_Store
