@@ -28,34 +28,62 @@ BASE_MEDIA_URL = "https://media-metadata.resi.io/api/v1"
 BASE_STATUS_URL = "https://media-status.resi.io/api/v1"
 
 class ResiClient:
-    def __init__(self, token=None, customer_id=DEFAULT_CUSTOMER_ID):
+    def __init__(self, email=None, password=None, token=None, customer_id=DEFAULT_CUSTOMER_ID):
         self.customer_id = customer_id
+        self.email = email or os.environ.get("RESI_EMAIL")
+        self.password = password or os.environ.get("RESI_PASSWORD")
         self.token = token or os.environ.get("RESI_BEARER_TOKEN")
         
-        # Fallback to reading token from HAR files if present in local directory
-        if not self.token:
-            self.token = self._extract_token_from_har()
-
-        if not self.token:
-            raise ValueError(
-                "No Resi auth token found.\n"
-                "Please set RESI_BEARER_TOKEN in your environment or ~/.hermes/profiles/work/.env\n"
-                "Or provide a captured studio.resi.io.har file in the working directory."
-            )
-
         self.session = requests.Session()
         self.session.headers.update({
-            "Authorization": f"Bearer {self.token}",
             "Content-Type": "application/json",
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
         })
 
+        # 1. First priority: Direct Bearer Token from Env
+        if self.token:
+            self.session.headers["Authorization"] = f"Bearer {self.token}"
+
+        # 2. Second priority: Sign in with Email & Password
+        elif self.email and self.password:
+            self._login_with_credentials()
+
+        # 3. Third priority: Extract token or session from local HAR file
+        else:
+            self.token = self._extract_token_from_har()
+            if self.token:
+                self.session.headers["Authorization"] = f"Bearer {self.token}"
+            else:
+                raise ValueError(
+                    "No Resi authentication provided.\n"
+                    "Please set either:\n"
+                    "  1. RESI_EMAIL and RESI_PASSWORD in ~/.hermes/profiles/work/.env\n"
+                    "  2. RESI_BEARER_TOKEN in environment\n"
+                    "  3. Provide a studio.resi.io.har export in the working directory."
+                )
+
+    def _login_with_credentials(self):
+        """Authenticates directly with Resi Studio using user credentials."""
+        url = f"{BASE_CENTRAL_URL}/auth/login"
+        payload = {"email": self.email, "password": self.password}
+        res = self.session.post(url, json=payload)
+        res.raise_for_status()
+        data = res.json()
+        
+        token = data.get("access_token") or data.get("token")
+        if token:
+            self.token = token
+            self.session.headers["Authorization"] = f"Bearer {self.token}"
+        else:
+            raise ValueError("Resi login succeeded, but no access token returned in response.")
+
     def _extract_token_from_har(self):
         har_files = ["studio.resi.io_new_analytics.har", "studio.resi.io_new.har", "studio.resi.io.har"]
         for hf in har_files:
-            if os.path.exists(hf):
+            har_path = os.path.join("/Users/wittenode/workspace", hf)
+            if os.path.exists(har_path):
                 try:
-                    with open(hf, 'r') as f:
+                    with open(har_path, 'r') as f:
                         data = json.load(f)
                     entries = data.get('log', {}).get('entries', [])
                     for entry in entries:
