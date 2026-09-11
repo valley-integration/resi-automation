@@ -2,15 +2,14 @@
 """
 Resi Studio Automation Client (resi.py)
 
-Automates Resi Studio (`studio.resi.io`) workflows via direct REST API calls.
+Automates Resi Studio (`studio.resi.io`) workflows via direct REST API calls and Playwright browser integration.
 Supports:
-  - Authentication (Bearer token, env credentials, or HAR session fallback)
+  - Authentication (OAuth Client Credentials, User credentials, or persistent Playwright browser session)
   - Schedules (Create, List, Update, Delete recurring or one-off events)
   - Live Encoders (List status, stop active stream)
   - Media Library (List, search, get webplayer links)
-  - Analytics (Summary metrics, viewer breakdown by city, live concurrency)
+  - Analytics (Summary metrics, viewer breakdown by city, live concurrency via headless browser telemetry)
   - Video Uploads (Auto-transcode with ffmpeg, probe metadata, upload to GCS, notify Resi)
-  - Video Downloads & Drive Integration (Fetch Resi MP4, push to Google Drive or local)
 """
 
 import os
@@ -21,14 +20,6 @@ import argparse
 import subprocess
 from urllib.parse import quote, urlparse
 import requests
-
-# Load .env file from working directory or user home if python-dotenv is installed
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-    load_dotenv(os.path.expanduser("~/.env"))
-except ImportError:
-    pass
 
 BASE_CENTRAL_URL = "https://central.resi.io/api/v3"
 BASE_MEDIA_URL = "https://media-metadata.resi.io/api/v1"
@@ -70,7 +61,7 @@ class ResiClient:
         else:
             raise ValueError(
                 "No Resi authentication provided.\n"
-                "Please set RESI_CLIENT_ID and RESI_CLIENT_SECRET, or RESI_BEARER_TOKEN, or RESI_EMAIL/RESI_PASSWORD in ~/.hermes/profiles/work/.env"
+                "Please set RESI_CLIENT_ID and RESI_CLIENT_SECRET, or RESI_BEARER_TOKEN, or RESI_EMAIL/RESI_PASSWORD in .env"
             )
 
     def _login_with_client_credentials(self):
@@ -110,8 +101,6 @@ class ResiClient:
             self.session.headers["Authorization"] = f"Bearer {self.token}"
         else:
             raise ValueError("Resi login succeeded, but no access token returned in response.")
-
-
 
     # --- Schedule Management ---
     def list_schedules(self):
@@ -166,12 +155,62 @@ class ResiClient:
         res.raise_for_status()
         return res.json()
 
-    # --- Media Library & Analytics ---
+    # --- Media Library ---
     def list_media(self, size=50):
         url = f"{BASE_MEDIA_URL}/customers/{self.customer_id}/playlists?size={size}&sort=desc.created_date"
         res = self.session.get(url)
         res.raise_for_status()
         return res.json()
+
+    # --- Analytics (Web session / Playwright Browser Fallback) ---
+    def fetch_analytics_via_browser(self):
+        """Uses persistent Playwright Chromium browser to pull telemetry from studio.resi.io."""
+        try:
+            from playwright.sync_api import sync_playwright
+        except ImportError:
+            raise RuntimeError(
+                "Playwright is required for browser telemetry.\n"
+                "Please run: pip install playwright && python3 -m playwright install chromium"
+            )
+
+        user_data_dir = os.path.expanduser("~/.hermes/profiles/work/resi_browser_data")
+        captured_data = {}
+
+        with sync_playwright() as p:
+            context = p.chromium.launch_persistent_context(
+                user_data_dir,
+                headless=True,
+                viewport={"width": 1280, "height": 800}
+            )
+            page = context.pages[0] if context.pages else context.new_page()
+
+            def handle_response(response):
+                if "telemetry.resi.io" in response.url:
+                    try:
+                        captured_data[response.url] = response.json()
+                    except Exception:
+                        pass
+
+            page.on("response", handle_response)
+            page.goto("https://studio.resi.io/analytics")
+            page.wait_for_timeout(3000)
+
+            # Auto-login if prompted
+            if page.query_selector("input[name='username']") and self.email and self.password:
+                page.fill("input[name='username']", self.email)
+                page.fill("input[name='password']", self.password)
+                page.click("button:has-text('Sign In')")
+                page.wait_for_timeout(4000)
+
+            # Click Event List to capture all events
+            event_btn = page.query_selector("button:has-text('Event List')")
+            if event_btn:
+                event_btn.click()
+                page.wait_for_timeout(3000)
+
+            context.close()
+
+        return captured_data
 
     def get_analytics_summary(self, start_date=None, end_date=None, destination_type="embed"):
         """Fetches total viewers, views, new/returning viewers, and avg time watched."""
@@ -191,6 +230,9 @@ class ResiClient:
             "viewAllData": "false"
         }
         res = self.session.get(url, params=params)
+        if res.status_code == 401:
+            print("Notice: Telemetry API requires web session. Launching background browser...")
+            return self.fetch_analytics_via_browser()
         res.raise_for_status()
         return res.json()
 
@@ -214,6 +256,8 @@ class ResiClient:
             "viewAllData": "false"
         }
         res = self.session.get(url, params=params)
+        if res.status_code == 401:
+            return self.fetch_analytics_via_browser()
         res.raise_for_status()
         return res.json()
 
@@ -354,6 +398,17 @@ def main():
     subparsers.add_parser("get-analytics", help="Get summary and city analytics for streams")
 
     args = parser.parse_args()
+
+    # Load environment variables from ~/.hermes/profiles/work/.env or local .env
+    for env_path in [os.path.expanduser("~/.hermes/profiles/work/.env"), ".env"]:
+        if os.path.exists(env_path):
+            with open(env_path, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        key, val = line.split("=", 1)
+                        os.environ.setdefault(key.strip(), val.strip("\"' "))
+
     client = ResiClient()
 
     if args.command == "list-schedules":
@@ -380,12 +435,8 @@ def main():
         res = client.upload_video_to_library(target_file, args.title, args.description)
         print(json.dumps(res, indent=2))
     elif args.command == "get-analytics":
-        summary = client.get_analytics_summary()
-        cities = client.get_city_analytics()
-        print("=== Analytics Summary (Last 7 Days) ===")
-        print(json.dumps(summary, indent=2))
-        print("\n=== Viewers by City ===")
-        print(json.dumps(cities, indent=2))
+        data = client.get_analytics_summary()
+        print(json.dumps(data, indent=2))
 
 if __name__ == "__main__":
     main()
