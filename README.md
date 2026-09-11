@@ -37,9 +37,16 @@ export RESI_BEARER_TOKEN="your_token_here"
 
 ## 🚀 Quick Usage
 
-### Installation
+### 1. Setup Environment
 ```bash
-pip install requests python-dotenv
+cp .env.example .env
+# Edit .env with your Resi API keys and user credentials
+```
+
+### 2. Install Dependencies
+```bash
+pip install requests python-dotenv playwright
+python3 -m playwright install chromium
 ```
 
 ### List Schedules & Encoders
