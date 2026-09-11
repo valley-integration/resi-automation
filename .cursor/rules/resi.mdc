@@ -7,6 +7,8 @@ globs: *.py, *.md
 
 When assisting with Resi Studio:
 - Execute commands using `./resi.py` CLI.
-- Read `RESI_BEARER_TOKEN` from the environment.
+- Read credentials from `RESI_CLIENT_ID`, `RESI_CLIENT_SECRET`, `RESI_CUSTOMER_ID`, `RESI_EMAIL`, and `RESI_PASSWORD` (or `RESI_BEARER_TOKEN`) environment variables or local `.env`.
+- Use `python3 resi.py get-analytics` for viewer analytics.
+- Use `python3 resi.py list-encoders` and `python3 resi.py stop-encoder <uuid>` for hardware encoders.
 - Transcode videos with `ffmpeg` using `-g 48 -keyint_min 48 -ar 48000 -ac 2` prior to Resi upload.
-- Never output or log authorization bearer tokens or user account passwords.
+- Never output, log, or commit authorization bearer tokens, API secrets, or account passwords.

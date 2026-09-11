@@ -17,16 +17,19 @@ Automate Resi Studio (`studio.resi.io`) workflows using direct REST API calls an
 
 **DO NOT commit Resi passwords or API tokens to git.**
 
-Set your Resi API Client ID and Secret in your environment or local `.env` file:
+Set your Resi configuration in your environment or local `.env` file:
 
 ```bash
+# 1. Official API Credentials (for Encoders, Schedules, and Library Uploads)
 export RESI_CLIENT_ID="your_client_id_here"
 export RESI_CLIENT_SECRET="your_client_secret_here"
-export RESI_CUSTOMER_ID="a6d06bd5-b77d-5c77-4e86-a64f16400362" # Optional override
-```
+export RESI_CUSTOMER_ID="your_customer_uuid_here"
 
-Or set a Bearer token directly:
-```bash
+# 2. Studio Web Credentials (for Telemetry & Viewer Analytics)
+export RESI_EMAIL="user@yourdomain.church"
+export RESI_PASSWORD="your_password_here"
+
+# 3. Optional Direct Session Token Override
 export RESI_BEARER_TOKEN="your_token_here"
 ```
 

@@ -30,7 +30,6 @@ try:
 except ImportError:
     pass
 
-DEFAULT_CUSTOMER_ID = os.environ.get("RESI_CUSTOMER_ID", "a6d06bd5-b77d-5c77-4e86-a64f16400362")
 BASE_CENTRAL_URL = "https://central.resi.io/api/v3"
 BASE_MEDIA_URL = "https://media-metadata.resi.io/api/v1"
 BASE_STATUS_URL = "https://media-status.resi.io/api/v1"
@@ -42,7 +41,13 @@ class ResiClient:
         self.token = token or os.environ.get("RESI_BEARER_TOKEN")
         self.client_id = client_id or os.environ.get("RESI_CLIENT_ID")
         self.client_secret = client_secret or os.environ.get("RESI_CLIENT_SECRET")
-        self.customer_id = customer_id or os.environ.get("RESI_CUSTOMER_ID") or DEFAULT_CUSTOMER_ID
+        self.customer_id = customer_id or os.environ.get("RESI_CUSTOMER_ID")
+        
+        if not self.customer_id:
+            raise ValueError(
+                "No Resi Customer ID provided.\n"
+                "Please set RESI_CUSTOMER_ID in ~/.hermes/profiles/work/.env or pass customer_id."
+            )
         
         self.session = requests.Session()
         self.session.headers.update({

@@ -11,12 +11,18 @@ Use when managing Resi Studio streams, schedules, encoders, webplayer links, ana
 Script: `./resi.py`
 
 ## Credentials & Configuration
-Set `RESI_CLIENT_ID` and `RESI_CLIENT_SECRET` (or `RESI_BEARER_TOKEN`) in `~/.hermes/profiles/work/.env`.
+Set environment variables in `~/.hermes/profiles/work/.env` or working directory `.env`:
 Never commit raw Resi API secrets, passwords, or bearer tokens to git.
 
 ```bash
+# Official API (Encoders, Schedules, Media Uploads)
 export RESI_CLIENT_ID="your_client_id_here"
 export RESI_CLIENT_SECRET="your_client_secret_here"
+export RESI_CUSTOMER_ID="your_customer_uuid_here"
+
+# Web Credentials (Telemetry / Analytics)
+export RESI_EMAIL="user@yourdomain.church"
+export RESI_PASSWORD="your_password_here"
 ```
 
 ## Features & Usage
